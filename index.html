@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Box Factory — Job Logger</title>
+<style>
+  :root {
+    --ink:    #1a1a1a;
+    --muted:  #666;
+    --faint:  #999;
+    --border: #ddd;
+    --bg:     #f7f6f2;
+    --white:  #ffffff;
+    --green:  #1a7a4a;
+    --green-bg: #eaf5ef;
+    --red:    #c0392b;
+    --red-bg: #fdf0ee;
+    --blue:   #1a4a7a;
+    --blue-bg: #eef3fb;
+    --accent: #1a4a7a;
+    --radius: 10px;
+    --shadow: 0 1px 4px rgba(0,0,0,0.08);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    background: var(--bg);
+    color: var(--ink);
+    font-size: 15px;
+    line-height: 1.5;
+    min-height: 100vh;
+  }
+
+  /* ---- Header ---- */
+  .top-bar {
+    background: var(--white);
+    border-bottom: 1px solid var(--border);
+    padding: 14px 20px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+  }
+  .top-bar .logo {
+    width: 36px; height: 36px;
+    background: var(--accent);
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px;
+  }
+  .top-bar h1 { font-size: 16px; font-weight: 600; }
+  .top-bar p  { font-size: 12px; color: var(--muted); }
+
+  /* ---- Layout ---- */
+  .page { max-width: 540px; margin: 0 auto; padding: 20px 16px 60px; }
+
+  /* ---- Card ---- */
+  .card {
+    background: var(--white);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    margin-bottom: 16px;
+    overflow: hidden;
+  }
+  .card-head {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .card-body { padding: 16px; }
+
+  /* ---- Upload zone ---- */
+  .upload-zone {
+    border: 2px dashed var(--border);
+    border-radius: var(--radius);
+    padding: 32px 16px;
+    text-align: center;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s;
+    position: relative;
+    background: var(--bg);
+  }
+  .upload-zone:hover, .upload-zone.drag {
+    background: var(--blue-bg);
+    border-color: var(--accent);
+  }
+  .upload-zone input {
+    position: absolute; inset: 0;
+    opacity: 0; cursor: pointer;
+    width: 100%; height: 100%;
+  }
+  .upload-icon { font-size: 36px; margin-bottom: 10px; display: block; }
+  .upload-zone .label { font-size: 15px; font-weight: 500; color: var(--ink); margin-bottom: 4px; }
+  .upload-zone .sublabel { font-size: 13px; color: var(--faint); }
+
+  /* ---- Preview ---- */
+  .preview-row {
+    display: flex; gap: 12px; align-items: flex-start;
+  }
+  .preview-thumb {
+    width: 80px; height: 80px; object-fit: cover;
+    border-radius: 8px; border: 1px solid var(--border); flex-shrink: 0;
+  }
+  .preview-info { flex: 1; }
+  .preview-name { font-size: 13px; color: var(--muted); margin-bottom: 10px; word-break: break-all; }
+
+  /* ---- Buttons ---- */
+  .btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 10px 18px; border-radius: 8px; border: none;
+    font-size: 14px; font-weight: 600; cursor: pointer;
+    transition: opacity 0.15s, transform 0.1s;
+  }
+  .btn:active { transform: scale(0.97); }
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+  .btn-primary { background: var(--accent); color: #fff; }
+  .btn-primary:hover:not(:disabled) { opacity: 0.88; }
+  .btn-success { background: var(--green); color: #fff; }
+  .btn-success:hover:not(:disabled) { opacity: 0.88; }
+  .btn-ghost {
+    background: none; border: 1px solid var(--border);
+    color: var(--muted); font-size: 12px; padding: 6px 12px;
+  }
+  .btn-ghost:hover { border-color: var(--accent); color: var(--accent); }
+  .btn-full { width: 100%; justify-content: center; }
+
+  /* ---- Status ---- */
+  .status {
+    padding: 10px 14px; border-radius: 8px;
+    font-size: 13px; margin-bottom: 14px; display: none;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .status.hidden { display: none !important; }
+  .status.info    { background: var(--blue-bg); color: var(--blue); }
+  .status.success { background: var(--green-bg); color: var(--green); }
+  .status.error   { background: var(--red-bg); color: var(--red); }
+
+  /* ---- Spinner ---- */
+  .spinner {
+    width: 16px; height: 16px; border-radius: 50%; flex-shrink: 0;
+    border: 2px solid currentColor; border-top-color: transparent;
+    animation: spin 0.7s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ---- Extracted jobs ---- */
+  .job-list { display: flex; flex-direction: column; gap: 12px; }
+  .job-item {
+    border: 1px solid var(--border);
+    border-radius: 8px; padding: 12px 14px;
+  }
+  .job-item-top {
+    display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px;
+  }
+  .job-item-id { font-weight: 600; font-size: 15px; }
+  .job-item-date {
+    font-size: 12px; color: var(--blue);
+    background: var(--blue-bg); padding: 2px 8px; border-radius: 20px;
+  }
+  .job-item-product { font-size: 13px; color: var(--muted); margin-bottom: 8px; }
+  .job-counts {
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px;
+  }
+  .count-box {
+    background: var(--bg); border-radius: 6px; padding: 6px 8px; text-align: center;
+  }
+  .count-box .cl { font-size: 11px; color: var(--faint); margin-bottom: 2px; }
+  .count-box .cv { font-size: 15px; font-weight: 600; }
+
+  /* ---- Tracker ---- */
+  .stats-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 14px; }
+  .stat {
+    background: var(--bg); border-radius: 8px; padding: 12px;
+    text-align: center;
+  }
+  .stat .sl { font-size: 11px; color: var(--faint); margin-bottom: 4px; }
+  .stat .sv { font-size: 20px; font-weight: 700; }
+
+  .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; min-width: 480px; }
+  th {
+    font-size: 11px; font-weight: 600; text-transform: uppercase;
+    letter-spacing: 0.04em; color: var(--muted);
+    padding: 8px 10px; text-align: left;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg); white-space: nowrap;
+  }
+  td { padding: 10px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: var(--bg); }
+  .empty-row td { text-align: center; color: var(--faint); padding: 28px; font-size: 13px; }
+
+  /* ---- Setup notice ---- */
+  .setup-notice {
+    background: var(--blue-bg);
+    border: 1px solid #c2d4ef;
+    border-radius: var(--radius);
+    padding: 14px 16px;
+    font-size: 13px;
+    color: var(--blue);
+    margin-bottom: 16px;
+    display: none;
+  }
+  .setup-notice.show { display: block; }
+  .setup-notice strong { display: block; margin-bottom: 4px; font-size: 14px; }
+
+  /* Divider */
+  .section-label {
+    font-size: 12px; font-weight: 600; text-transform: uppercase;
+    letter-spacing: 0.05em; color: var(--faint);
+    margin: 24px 0 10px;
+  }
+</style>
+</head>
+<body>
+
+<div class="top-bar">
+  <div class="logo">📦</div>
+  <div>
+    <h1>Box Factory</h1>
+    <p>Job Logger</p>
+  </div>
+</div>
+
+<div class="page">
+
+  <!-- Setup notice shown when BACKEND_URL is not set -->
+  <div class="setup-notice" id="setupNotice">
+    <strong>⚙️ Setup required</strong>
+    The backend URL is not configured. Please paste your Google Apps Script Web App URL into this file (replace <code>YOUR_APPS_SCRIPT_URL_HERE</code> near the top of the script section).
+  </div>
+
+  <!-- Step 1: Upload -->
+  <div class="section-label">Step 1 — Upload notebook photo</div>
+  <div class="card">
+    <div class="card-body">
+      <div class="upload-zone" id="dropZone">
+        <input type="file" id="fileInput" accept="image/*" capture="environment" />
+        <span class="upload-icon">📷</span>
+        <div class="label">Tap to take photo or choose file</div>
+        <div class="sublabel">JPG, PNG, HEIC supported</div>
+      </div>
+
+      <div id="previewArea" style="display:none; margin-top:14px;">
+        <div class="preview-row">
+          <img class="preview-thumb" id="previewImg" alt="Notebook" />
+          <div class="preview-info">
+            <div class="preview-name" id="previewName"></div>
+            <button class="btn btn-primary" id="extractBtn" onclick="extractData()">
+              <span id="extractBtnText">🔍 Read with AI</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Status bar -->
+  <div class="status hidden" id="statusBar">
+    <div class="spinner" id="statusSpinner" style="display:none;"></div>
+    <span id="statusText"></span>
+  </div>
+
+  <!-- Step 2: Extracted results -->
+  <div id="extractedSection" style="display:none;">
+    <div class="section-label">Step 2 — Review &amp; save</div>
+    <div class="card">
+      <div class="card-head">
+        <span>Extracted jobs</span>
+        <span id="jobCount" style="color:var(--ink);font-size:12px;"></span>
+      </div>
+      <div class="card-body">
+        <div class="job-list" id="jobList"></div>
+        <div style="margin-top:14px;">
+          <button class="btn btn-success btn-full" id="saveBtn" onclick="saveJobs()">
+            <span id="saveBtnText">💾 Save to Google Sheets</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tracker -->
+  <div class="section-label" style="display:flex;justify-content:space-between;align-items:center;">
+    <span>Job Tracker</span>
+    <button class="btn btn-ghost" onclick="loadTracker()">Refresh</button>
+  </div>
+  <div class="card">
+    <div class="card-body" style="padding:12px 16px;">
+      <div class="stats-row">
+        <div class="stat"><div class="sl">Total jobs</div><div class="sv" id="statTotal">—</div></div>
+        <div class="stat"><div class="sl">Top (total)</div><div class="sv" id="statTop">—</div></div>
+        <div class="stat"><div class="sl">Last entry</div><div class="sv" id="statDate" style="font-size:14px;">—</div></div>
+      </div>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Job ID</th>
+            <th>Qty</th>
+            <th>Client</th>
+            <th>Top</th>
+            <th>Bottom</th>
+            <th>Pasting</th>
+          </tr>
+        </thead>
+        <tbody id="trackerBody">
+          <tr class="empty-row"><td colspan="7">No jobs logged yet</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ============================================================
+//  IMPORTANT: Replace the URL below with your Google Apps
+//  Script Web App URL after deployment.
+// ============================================================
+const BACKEND_URL = "https://script.google.com/macros/s/AKfycbzBoxf1hfKBy6RkL-EA2Tjk9-DvgOlMj8razVT7MWo0ino7rhWAJJD3Tuus0yXQtalr/exec";
+
+
+let currentBase64 = null;
+let currentMime   = "image/jpeg";
+let extractedJobs = [];
+
+// ---- Setup check ----
+window.addEventListener("load", function() {
+  if (!BACKEND_URL || BACKEND_URL === "YOUR_APPS_SCRIPT_URL_HERE") {
+    document.getElementById("setupNotice").classList.add("show");
+  } else {
+    loadTracker();
+  }
+});
+
+// ---- File handling ----
+document.getElementById("fileInput").addEventListener("change", function(e) {
+  const file = e.target.files[0];
+  if (file) handleFile(file);
+});
+
+const dropZone = document.getElementById("dropZone");
+dropZone.addEventListener("dragover", function(e) { e.preventDefault(); dropZone.classList.add("drag"); });
+dropZone.addEventListener("dragleave", function() { dropZone.classList.remove("drag"); });
+dropZone.addEventListener("drop", function(e) {
+  e.preventDefault(); dropZone.classList.remove("drag");
+  if (e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]);
+});
+
+function handleFile(file) {
+  currentMime = file.type || "image/jpeg";
+  const reader = new FileReader();
+  reader.onload = function(ev) {
+    const dataUrl = ev.target.result;
+    currentBase64 = dataUrl.split(",")[1];
+    document.getElementById("previewImg").src = dataUrl;
+    document.getElementById("previewName").textContent = file.name;
+    document.getElementById("previewArea").style.display = "block";
+    document.getElementById("extractedSection").style.display = "none";
+    clearStatus();
+  };
+  reader.readAsDataURL(file);
+}
+
+// ---- Extract ----
+async function extractData() {
+  if (!currentBase64) return;
+  const btn = document.getElementById("extractBtn");
+  btn.disabled = true;
+  document.getElementById("extractBtnText").textContent = "Reading...";
+  setStatus("Sending photo to AI — please wait...", "info", true);
+
+  try {
+    const resp = await fetch(BACKEND_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "extract", imageBase64: currentBase64, mimeType: currentMime })
+    });
+
+    // Apps Script returns redirect, need to follow
+    const data = await resp.json();
+
+    if (!data.ok) throw new Error(data.error || "Extraction failed");
+
+    extractedJobs = data.jobs || [];
+    renderExtracted(extractedJobs);
+    setStatus("Found " + extractedJobs.length + " job" + (extractedJobs.length !== 1 ? "s" : "") + " in the photo", "success", false);
+    document.getElementById("extractedSection").style.display = "block";
+  } catch (err) {
+    setStatus("Error: " + err.message, "error", false);
+  }
+
+  btn.disabled = false;
+  document.getElementById("extractBtnText").textContent = "🔍 Read with AI";
+}
+
+function renderExtracted(jobs) {
+  const list = document.getElementById("jobList");
+  list.innerHTML = "";
+  document.getElementById("jobCount").textContent = jobs.length + " found";
+
+  jobs.forEach(function(j) {
+    const div = document.createElement("div");
+    div.className = "job-item";
+    div.innerHTML =
+      '<div class="job-item-top">' +
+        '<span class="job-item-id">' + (j.job_id || "—") + ' &nbsp;<small style="font-weight:400;font-size:13px;color:var(--muted)">qty ' + num(j.quantity) + '</small></span>' +
+        '<span class="job-item-date">' + (j.date || "—") + '</span>' +
+      '</div>' +
+      '<div class="job-item-product">' + [j.client, j.product].filter(Boolean).join(" — ") + '</div>' +
+      '<div class="job-counts">' +
+        '<div class="count-box"><div class="cl">Top</div><div class="cv">' + num(j.top) + '</div></div>' +
+        '<div class="count-box"><div class="cl">Bottom</div><div class="cv">' + num(j.bottom) + '</div></div>' +
+        '<div class="count-box"><div class="cl">Pasting</div><div class="cv">' + num(j.pasting) + '</div></div>' +
+      '</div>';
+    list.appendChild(div);
+  });
+}
+
+// ---- Save ----
+async function saveJobs() {
+  if (!extractedJobs.length) return;
+  const btn = document.getElementById("saveBtn");
+  btn.disabled = true;
+  document.getElementById("saveBtnText").textContent = "Saving...";
+  setStatus("Saving to Google Sheets...", "info", true);
+
+  try {
+    const resp = await fetch(BACKEND_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "save", jobs: extractedJobs })
+    });
+    const data = await resp.json();
+    if (!data.ok) throw new Error(data.error || "Save failed");
+
+    setStatus("Saved " + data.saved + " job" + (data.saved !== 1 ? "s" : "") + " to Google Sheets ✓", "success", false);
+    document.getElementById("extractedSection").style.display = "none";
+    currentBase64 = null;
+    document.getElementById("previewArea").style.display = "none";
+    document.getElementById("fileInput").value = "";
+    loadTracker();
+  } catch (err) {
+    setStatus("Save error: " + err.message, "error", false);
+  }
+
+  btn.disabled = false;
+  document.getElementById("saveBtnText").textContent = "💾 Save to Google Sheets";
+}
+
+// ---- Load tracker ----
+async function loadTracker() {
+  if (!BACKEND_URL || BACKEND_URL === "YOUR_APPS_SCRIPT_URL_HERE") return;
+  try {
+    const resp = await fetch(BACKEND_URL + "?action=load");
+    const data = await resp.json();
+    if (!data.ok || !data.rows) return;
+
+    const rows = data.rows;
+    const tbody = document.getElementById("trackerBody");
+    tbody.innerHTML = "";
+
+    if (rows.length === 0) {
+      tbody.innerHTML = '<tr class="empty-row"><td colspan="7">No jobs logged yet</td></tr>';
+      document.getElementById("statTotal").textContent = "0";
+      document.getElementById("statTop").textContent = "0";
+      document.getElementById("statDate").textContent = "—";
+      return;
+    }
+
+    let totalTop = 0;
+    [...rows].reverse().forEach(function(r) {
+      totalTop += parseInt(r["Top"]) || 0;
+      const tr = document.createElement("tr");
+      tr.innerHTML =
+        "<td>" + (r["Date"] || "") + "</td>" +
+        "<td><strong>" + (r["Job ID"] || "") + "</strong></td>" +
+        "<td>" + num(r["Quantity"]) + "</td>" +
+        "<td style='color:var(--muted)'>" + (r["Client"] || "") + "</td>" +
+        "<td>" + num(r["Top"]) + "</td>" +
+        "<td>" + num(r["Bottom"]) + "</td>" +
+        "<td>" + num(r["Pasting"]) + "</td>";
+      tbody.appendChild(tr);
+    });
+
+    document.getElementById("statTotal").textContent = rows.length;
+    document.getElementById("statTop").textContent = totalTop.toLocaleString("en-IN");
+    document.getElementById("statDate").textContent = rows[rows.length - 1]["Date"] || "—";
+  } catch (err) {
+    console.error("Tracker load error:", err);
+  }
+}
+
+// ---- Helpers ----
+function num(v) {
+  const n = parseInt(v);
+  return isNaN(n) ? "—" : n.toLocaleString("en-IN");
+}
+
+function setStatus(msg, type, spinning) {
+  const bar = document.getElementById("statusBar");
+  const spinner = document.getElementById("statusSpinner");
+  document.getElementById("statusText").textContent = msg;
+  bar.className = "status " + type;
+  spinner.style.display = spinning ? "block" : "none";
+}
+
+function clearStatus() {
+  document.getElementById("statusBar").className = "status hidden";
+}
+</script>
+
+</body>
+</html>
