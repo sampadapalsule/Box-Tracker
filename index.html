@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -335,7 +336,6 @@
 // ============================================================
 const BACKEND_URL = "https://script.google.com/macros/s/AKfycbzBoxf1hfKBy6RkL-EA2Tjk9-DvgOlMj8razVT7MWo0ino7rhWAJJD3Tuus0yXQtalr/exec";
 
-
 let currentBase64 = null;
 let currentMime   = "image/jpeg";
 let extractedJobs = [];
@@ -378,6 +378,28 @@ function handleFile(file) {
   reader.readAsDataURL(file);
 }
 
+// ---- CORS-safe call to Apps Script ----
+// Apps Script doesn't support CORS for POST, so we use a form-submit trick
+// For GET (load) we use JSONP. For POST (extract/save) we use no-cors + polling.
+// Simplest reliable approach: send all data via GET with a callback (JSONP).
+// Image is too large for GET, so we split: send image via a hidden form POST to
+// a relay, but since we control Apps Script we instead encode everything as GET params.
+// ACTUAL fix: use fetch with mode:'cors' — Apps Script DOES support CORS when
+// ContentService is used. The real issue is the redirect. We must use redirect:'follow'.
+
+function appsScriptPost(payload) {
+  return fetch(BACKEND_URL, {
+    method: "POST",
+    redirect: "follow",
+    body: JSON.stringify(payload)
+  }).then(function(r) { return r.json(); });
+}
+
+function appsScriptGet(params) {
+  const url = BACKEND_URL + "?" + new URLSearchParams(params).toString();
+  return fetch(url, { redirect: "follow" }).then(function(r) { return r.json(); });
+}
+
 // ---- Extract ----
 async function extractData() {
   if (!currentBase64) return;
@@ -387,14 +409,7 @@ async function extractData() {
   setStatus("Sending photo to AI — please wait...", "info", true);
 
   try {
-    const resp = await fetch(BACKEND_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "extract", imageBase64: currentBase64, mimeType: currentMime })
-    });
-
-    // Apps Script returns redirect, need to follow
-    const data = await resp.json();
+    const data = await appsScriptPost({ action: "extract", imageBase64: currentBase64, mimeType: currentMime });
 
     if (!data.ok) throw new Error(data.error || "Extraction failed");
 
@@ -442,12 +457,7 @@ async function saveJobs() {
   setStatus("Saving to Google Sheets...", "info", true);
 
   try {
-    const resp = await fetch(BACKEND_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "save", jobs: extractedJobs })
-    });
-    const data = await resp.json();
+    const data = await appsScriptPost({ action: "save", jobs: extractedJobs });
     if (!data.ok) throw new Error(data.error || "Save failed");
 
     setStatus("Saved " + data.saved + " job" + (data.saved !== 1 ? "s" : "") + " to Google Sheets ✓", "success", false);
@@ -468,8 +478,7 @@ async function saveJobs() {
 async function loadTracker() {
   if (!BACKEND_URL || BACKEND_URL === "YOUR_APPS_SCRIPT_URL_HERE") return;
   try {
-    const resp = await fetch(BACKEND_URL + "?action=load");
-    const data = await resp.json();
+    const data = await appsScriptGet({ action: "load" });
     if (!data.ok || !data.rows) return;
 
     const rows = data.rows;
